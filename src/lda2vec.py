@@ -57,7 +57,7 @@ class negative_sampling_loss(nn.Module):
         # sample negative words
         # shape: [batch_size*window_size*num_sampled]
         noise = torch.multinomial(self.word_distribution, batch_size*window_size*self.num_sampled)
-        noise = Variable(noise)
+        noise = Variable(noise.cuda())
 
         noise = noise.view(batch_size, window_size*self.num_sampled)
         # shape: [batch_size, window_size*num_sampled, embedding_dim]
@@ -85,7 +85,7 @@ class topic_embedding(nn.Module):
             embedding_dim: An integer.
             n_topics: An integer.
         """
-        super(lda2vec, self).__init__()
+        super(topic_embedding, self).__init__()
 
         # random uniform initialization of topic vectors
         topic_vectors = 2.0*torch.rand(n_topics, embedding_dim) - 1.0
