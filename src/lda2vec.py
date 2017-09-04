@@ -26,6 +26,7 @@ class negative_sampling_loss(nn.Module):
         self.embedding_dim = embedding_dim
         self.word_distribution = word_distribution
         self.num_sampled = num_sampled
+        self.dropout = nn.Dropout(0.5)
 
     def forward(self, pivot_words, target_words, doc_vectors):
         """Compute loss.
@@ -43,6 +44,7 @@ class negative_sampling_loss(nn.Module):
 
         # shape: [batch_size, embedding_dim]
         pivot_vectors = self.embedding(pivot_words)
+        pivot_vectors = self.dropout(pivot_vectors)
         context_vectors = doc_vectors + pivot_vectors
 
         # shape: [batch_size, window_size, embedding_dim]
@@ -50,28 +52,37 @@ class negative_sampling_loss(nn.Module):
 
         # shape: [batch_size, 1, embedding_dim]
         unsqueezed_context = context_vectors.unsqueeze(1)
-
+        
+        # compute dot product between a context vector
+        # and each word vector in the window,
         # shape: [batch_size, window_size]
         log_targets = (targets*unsqueezed_context).sum(2).sigmoid().log()
 
-        # sample negative words
+        # sample negative words for each word in the window,
         # shape: [batch_size*window_size*num_sampled]
-        noise = torch.multinomial(self.word_distribution, batch_size*window_size*self.num_sampled)
+        noise = torch.multinomial(
+            self.word_distribution, batch_size*window_size*self.num_sampled,
+            replacement=True
+        )
         noise = Variable(noise.cuda())
 
         noise = noise.view(batch_size, window_size*self.num_sampled)
         # shape: [batch_size, window_size*num_sampled, embedding_dim]
         noise = self.embedding(noise)
         noise = noise.view(batch_size, window_size, self.num_sampled, self.embedding_dim)
-
+        
         # shape: [batch_size, 1, 1, embedding_dim]
         unsqueezed_context = context_vectors.unsqueeze(1).unsqueeze(1)
-
+        
+        # compute dot product between a context vector
+        # and each negative word's vector for each word in the window,
+        # then sum over negative words,
         # shape: [batch_size, window_size]
         sum_log_sampled = (noise*unsqueezed_context).sum(3).neg().sigmoid().log().sum(2)
 
         neg_loss = log_targets + sum_log_sampled
-
+        
+        # take mean over the batch, then sum over the window
         # shape: []
         return neg_loss.mean(0).sum().neg()
 
@@ -91,6 +102,7 @@ class topic_embedding(nn.Module):
         topic_vectors = 2.0*torch.rand(n_topics, embedding_dim) - 1.0
         self.topic_vectors = nn.Parameter(topic_vectors)
         self.embedding_dim = embedding_dim
+        self.dropout = nn.Dropout(0.5)
 
     def forward(self, doc_weights):
         """Embed a batch of documents.
@@ -103,6 +115,7 @@ class topic_embedding(nn.Module):
         """
 
         batch_size, n_topics = doc_weights.size()
+        doc_weights = self.dropout(doc_weights)
         doc_probs = F.softmax(doc_weights)
 
         # shape: [batch_size, n_topics, 1]
@@ -110,7 +123,8 @@ class topic_embedding(nn.Module):
 
         # shape: [1, n_topics, embedding_dim]
         unsqueezed_topic_vectors = self.topic_vectors.unsqueeze(0)
-
+        
+        # linear combination of topic vectors weighted by probabilities,
         # shape: [batch_size, embedding_dim]
         doc_vectors = (unsqueezed_doc_probs*unsqueezed_topic_vectors).sum(1)
 
