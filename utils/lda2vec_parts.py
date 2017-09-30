@@ -4,6 +4,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+EPSILON = 1e-8
+
+
 class negative_sampling_loss(nn.Module):
 
     def __init__(self, word_vectors, word_distribution, num_sampled):
@@ -56,7 +59,7 @@ class negative_sampling_loss(nn.Module):
         # compute dot product between a context vector
         # and each word vector in the window,
         # shape: [batch_size, window_size]
-        log_targets = (targets*unsqueezed_context).sum(2).sigmoid().log()
+        log_targets = (targets*unsqueezed_context).sum(2).sigmoid().clamp(min=EPSILON).log()
 
         # sample negative words for each word in the window,
         # shape: [batch_size*window_size*num_sampled]
@@ -78,13 +81,13 @@ class negative_sampling_loss(nn.Module):
         # and each negative word's vector for each word in the window,
         # then sum over negative words,
         # shape: [batch_size, window_size]
-        sum_log_sampled = (noise*unsqueezed_context).sum(3).neg().sigmoid().log().sum(2)
+        sum_log_sampled = (noise*unsqueezed_context).sum(3).neg().sigmoid().clamp(min=EPSILON).log().sum(2)
 
         neg_loss = log_targets + sum_log_sampled
         
-        # take mean over the batch, then sum over the window
+        # sum over the window, then take mean over the batch
         # shape: []
-        return neg_loss.mean(0).sum().neg()
+        return neg_loss.sum(1).mean().neg()
 
 
 class topic_embedding(nn.Module):
@@ -99,7 +102,7 @@ class topic_embedding(nn.Module):
         super(topic_embedding, self).__init__()
 
         # random uniform initialization of topic vectors
-        topic_vectors = 2.0*torch.rand(n_topics, embedding_dim) - 1.0
+        topic_vectors = (2.0*torch.rand(n_topics, embedding_dim) - 1.0)
         self.topic_vectors = nn.Parameter(topic_vectors)
         self.embedding_dim = embedding_dim
         self.dropout = nn.Dropout(0.5)
