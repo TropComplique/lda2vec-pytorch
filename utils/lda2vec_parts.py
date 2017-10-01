@@ -55,11 +55,12 @@ class negative_sampling_loss(nn.Module):
 
         # shape: [batch_size, 1, embedding_dim]
         unsqueezed_context = context_vectors.unsqueeze(1)
-        
+
         # compute dot product between a context vector
         # and each word vector in the window,
         # shape: [batch_size, window_size]
-        log_targets = (targets*unsqueezed_context).sum(2).sigmoid().clamp(min=EPSILON).log()
+        log_targets = (targets*unsqueezed_context).sum(2).sigmoid()\
+            .clamp(min=EPSILON).log()
 
         # sample negative words for each word in the window,
         # shape: [batch_size*window_size*num_sampled]
@@ -73,18 +74,19 @@ class negative_sampling_loss(nn.Module):
         # shape: [batch_size, window_size*num_sampled, embedding_dim]
         noise = self.embedding(noise)
         noise = noise.view(batch_size, window_size, self.num_sampled, self.embedding_dim)
-        
+
         # shape: [batch_size, 1, 1, embedding_dim]
         unsqueezed_context = context_vectors.unsqueeze(1).unsqueeze(1)
-        
+
         # compute dot product between a context vector
         # and each negative word's vector for each word in the window,
         # then sum over negative words,
         # shape: [batch_size, window_size]
-        sum_log_sampled = (noise*unsqueezed_context).sum(3).neg().sigmoid().clamp(min=EPSILON).log().sum(2)
+        sum_log_sampled = (noise*unsqueezed_context).sum(3).neg().sigmoid()\
+            .clamp(min=EPSILON).log().sum(2)
 
         neg_loss = log_targets + sum_log_sampled
-        
+
         # sum over the window, then take mean over the batch
         # shape: []
         return neg_loss.sum(1).mean().neg()
@@ -126,7 +128,7 @@ class topic_embedding(nn.Module):
 
         # shape: [1, n_topics, embedding_dim]
         unsqueezed_topic_vectors = self.topic_vectors.unsqueeze(0)
-        
+
         # linear combination of topic vectors weighted by probabilities,
         # shape: [batch_size, embedding_dim]
         doc_vectors = (unsqueezed_doc_probs*unsqueezed_topic_vectors).sum(1)
