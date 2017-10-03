@@ -4,14 +4,18 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+# to prevent taking logarithm of zero
 EPSILON = 1e-8
+
+# topic vectors will be initialized by
+# random uniform distribution with this range
+TOPICS_INIT = 0.4
 
 
 class negative_sampling_loss(nn.Module):
 
-    def __init__(self, word_vectors, word_distribution, num_sampled):
-        """Initialize loss.
-
+    def __init__(self, word_vectors, word_distribution, num_sampled=10):
+        """
         Arguments:
             word_vectors: A float tensor of shape [vocab_size, embedding_dim].
                 A word representation like, for example, word2vec or GloVe.
@@ -29,7 +33,8 @@ class negative_sampling_loss(nn.Module):
         self.embedding_dim = embedding_dim
         self.word_distribution = word_distribution
         self.num_sampled = num_sampled
-        self.dropout = nn.Dropout(0.5)
+        self.dropout1 = nn.Dropout(0.5)
+        self.dropout2 = nn.Dropout(0.5)
 
     def forward(self, pivot_words, target_words, doc_vectors):
         """Compute loss.
@@ -37,7 +42,9 @@ class negative_sampling_loss(nn.Module):
         Arguments:
             pivot_words: A long tensor of shape [batch_size].
             target_words: A long tensor of shape [batch_size, window_size].
+                Windows around pivot words.
             doc_vectors: A float tensor of shape [batch_size, embedding_dim].
+                Documents embeddings.
 
         Returns:
             A scalar.
@@ -47,7 +54,10 @@ class negative_sampling_loss(nn.Module):
 
         # shape: [batch_size, embedding_dim]
         pivot_vectors = self.embedding(pivot_words)
-        pivot_vectors = self.dropout(pivot_vectors)
+
+        # shapes: [batch_size, embedding_dim]
+        pivot_vectors = self.dropout1(pivot_vectors)
+        doc_vectors = self.dropout2(doc_vectors)
         context_vectors = doc_vectors + pivot_vectors
 
         # shape: [batch_size, window_size, embedding_dim]
@@ -69,8 +79,8 @@ class negative_sampling_loss(nn.Module):
             replacement=True
         )
         noise = Variable(noise.cuda())
-
         noise = noise.view(batch_size, window_size*self.num_sampled)
+
         # shape: [batch_size, window_size*num_sampled, embedding_dim]
         noise = self.embedding(noise)
         noise = noise.view(batch_size, window_size, self.num_sampled, self.embedding_dim)
@@ -95,8 +105,7 @@ class negative_sampling_loss(nn.Module):
 class topic_embedding(nn.Module):
 
     def __init__(self, n_topics, embedding_dim):
-        """Define an embedding.
-
+        """
         Arguments:
             embedding_dim: An integer.
             n_topics: An integer.
@@ -104,23 +113,22 @@ class topic_embedding(nn.Module):
         super(topic_embedding, self).__init__()
 
         # random uniform initialization of topic vectors
-        topic_vectors = (2.0*torch.rand(n_topics, embedding_dim) - 1.0)
+        topic_vectors = TOPICS_INIT*(2.0*torch.rand(n_topics, embedding_dim) - 1.0)
         self.topic_vectors = nn.Parameter(topic_vectors)
         self.embedding_dim = embedding_dim
-        self.dropout = nn.Dropout(0.5)
 
     def forward(self, doc_weights):
         """Embed a batch of documents.
 
         Arguments:
-            doc_weights: A float tensor of shape [batch_size, n_topics].
+            doc_weights: A float tensor of shape [batch_size, n_topics],
+                document distribution (logits) over the topics.
 
         Returns:
             A float tensor of shape [batch_size, embedding_dim].
         """
 
         batch_size, n_topics = doc_weights.size()
-        doc_weights = self.dropout(doc_weights)
         doc_probs = F.softmax(doc_weights)
 
         # shape: [batch_size, n_topics, 1]
