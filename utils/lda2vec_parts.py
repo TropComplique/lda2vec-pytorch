@@ -9,7 +9,7 @@ EPSILON = 1e-8
 
 # topic vectors will be initialized by
 # random uniform distribution with this range
-TOPICS_INIT = 0.4
+TOPICS_INIT = 0.2
 
 
 class negative_sampling_loss(nn.Module):
