@@ -2,14 +2,11 @@ import torch
 from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
+from scipy.stats import ortho_group
 
 
 # to prevent taking logarithm of zero
 EPSILON = 1e-8
-
-# topic vectors will be initialized by
-# random uniform distribution with this range
-TOPICS_INIT = 0.2
 
 
 class negative_sampling_loss(nn.Module):
@@ -112,8 +109,12 @@ class topic_embedding(nn.Module):
         """
         super(topic_embedding, self).__init__()
 
-        # random uniform initialization of topic vectors
-        topic_vectors = TOPICS_INIT*(2.0*torch.rand(n_topics, embedding_dim) - 1.0)
+        # initialize topic vectors by a random orthogonal matrix
+        assert n_topics < embedding_dim
+        topic_vectors = ortho_group.rvs(embedding_dim)
+        topic_vectors = topic_vectors[0:n_topics]
+        topic_vectors = torch.FloatTensor(topic_vectors)
+
         self.topic_vectors = nn.Parameter(topic_vectors)
         self.embedding_dim = embedding_dim
 

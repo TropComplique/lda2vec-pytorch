@@ -24,7 +24,7 @@ def get_windows(doc, hws=5):
     # the end of doc tuples are slightly different
     beginning = [(w, doc[:i] + doc[(i + 1):(2*hws + 1)])
                  for i, w in enumerate(doc[:hws], 0)]
-    
+
     end = [(w, doc[-(2*hws + 1):i] + doc[(i + 1):])
            for i, w in enumerate(doc[-hws:], length - hws)]
 
