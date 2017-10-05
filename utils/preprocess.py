@@ -5,13 +5,13 @@ from tqdm import tqdm
 def preprocess(docs, nlp, min_length=11, min_counts=5):
     """
     Arguments:
-        docs: a list of strings, each string is a document.
+        docs: a list of tuples (index, string), each string is a document.
         nlp: a spaCy object, like nlp = spacy.load('en').
         min_length: an integer, minimum document length.
         min_counts: an integer.
 
     Returns:
-        encoded_docs: a list of lists, each list is a document encoded
+        encoded_docs: a list of tuples (index, list), each list is a document encoded
             by integer values.
         decoder: a dict, integer -> word.
         word_counts: a list of integers, counts of words that are in decoder.
@@ -25,32 +25,40 @@ def preprocess(docs, nlp, min_length=11, min_counts=5):
         return [t.lemma_ for t in text
                 if t.is_alpha and len(t) > 2 and (not t.is_stop)]
 
-    tokenized_docs = [clean_and_tokenize(doc) for doc in tqdm(docs)]
+    tokenized_docs = [(i, clean_and_tokenize(doc)) for i, doc in tqdm(docs)]
 
     # remove short documents
-    tokenized_docs = [doc for doc in tokenized_docs if len(doc) >= min_length]
+    n_short_docs = sum(1 for i, doc in tokenized_docs if len(doc) < min_length)
+    tokenized_docs = [(i, doc) for i, doc in tokenized_docs if len(doc) >= min_length]
+    print('number of removed short documents:', n_short_docs)
 
     counts = _count_unique_tokens(tokenized_docs)
     tokenized_docs = _remove_rare_tokens(counts, min_counts, tokenized_docs)
-    tokenized_docs = [doc for doc in tokenized_docs if len(doc) >= min_length]
+    n_short_docs = sum(1 for i, doc in tokenized_docs if len(doc) < min_length)
+    tokenized_docs = [(i, doc) for i, doc in tokenized_docs if len(doc) >= min_length]
+    print('number of additionally removed short documents:', n_short_docs)
 
     counts = _count_unique_tokens(tokenized_docs)
     encoder, decoder, word_counts = _create_token_encoder(counts)
+    
+    print('\nminimum word count number:', word_counts[-1])
+    print('this number can be less than MIN_COUNTS because of document removal')
+    
     encoded_docs = _encode(tokenized_docs, encoder)
     return encoded_docs, decoder, word_counts
 
 
 def _count_unique_tokens(tokenized_docs):
     tokens = []
-    for doc in tokenized_docs:
+    for i, doc in tokenized_docs:
         tokens += doc
     return Counter(tokens)
 
 
 def _encode(tokenized_docs, encoder):
     result = []
-    for doc in tokenized_docs:
-        result.append([encoder[t] for t in doc])
+    for i, doc in tokenized_docs:
+        result.append((i, [encoder[t] for t in doc]))
     return result
 
 
@@ -67,18 +75,23 @@ def _remove_rare_tokens(counts, min_counts, tokenized_docs):
     # number of tokens that will be removed
     unknown_tokens_count = sum(
         count for token, count in counts.most_common()
-        if count < min_counts and not has_vector(token)
+        if count < min_counts
     )
-    print('number of unknown tokens:', unknown_tokens_count)
+    print('number of unknown tokens to be removed:', unknown_tokens_count)
 
     keep = {}
     for token, count in counts.most_common():
         keep[token] = count >= min_counts
 
-    return [[encoder[t] for t in doc if keep[t]] for doc in tokenized_docs]
+    return [(i, [t for t in doc if keep[t]]) for i, doc in tokenized_docs]
 
 
 def _create_token_encoder(counts):
+    
+    total_tokens_count = sum(
+        count for token, count in counts.most_common()
+    )
+    print('total number of tokens:', total_tokens_count)
 
     encoder = {}
     decoder = {}
@@ -87,10 +100,9 @@ def _create_token_encoder(counts):
 
     for token, count in counts.most_common():
         # counts.most_common() is in decreasing count order
-        if count >= min_counts or has_vector(token):
-            encoder[token] = i
-            decoder[i] = token
-            word_counts.append(count)
-            i += 1
+        encoder[token] = i
+        decoder[i] = token
+        word_counts.append(count)
+        i += 1
 
     return encoder, decoder, word_counts
