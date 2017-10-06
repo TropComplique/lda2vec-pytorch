@@ -35,8 +35,8 @@ def preprocess(docs, nlp, min_length=11, min_counts=5, max_counts=1e5):
     print('number of removed short documents:', n_short_docs)
 
     counts = _count_unique_tokens(tokenized_docs)
-    print('looking for words to replace!')
-    tokenized_docs = _replace_by_similar(tokenized_docs, counts, min_counts)
+    # print('looking for words to replace:')
+    # tokenized_docs = _replace_by_similar(tokenized_docs, counts, min_counts)
     tokenized_docs = _remove_tokens(tokenized_docs, counts, min_counts, max_counts)
     n_short_docs = sum(1 for i, doc in tokenized_docs if len(doc) < min_length)
     tokenized_docs = [(i, doc) for i, doc in tokenized_docs if len(doc) >= min_length]
@@ -63,24 +63,30 @@ def _encode(tokenized_docs, encoder):
     return [(i, [encoder[t] for t in doc]) for i, doc in tokenized_docs]
 
 
+# not working yet
 def _replace_by_similar(tokenized_docs, counts, min_counts):
     """
     Explore the possibility that some of rare words
     are just typos. Then correct typos.
     """
-    rare = [
-        (i, token) for i, (token, count) in enumerate(counts.most_common())
-        if count < min_counts
-    ]
-    all_tokens = [token for token, count in counts.most_common()]
-    replacements = {token: token for token in all_tokens}
+    rare = [token for token, count in counts.most_common() if count < min_counts]
+    choices = [token for token, count in counts.most_common()]
+    replacements = {token: token for token in choices}
 
-    for i, token in rare:
-        choices = all_tokens[:i] + all_tokens[(i + 1):]
-        similar = process.extractOne(token, choices, score_cutoff=90)
-        if similar is not None:
-            print(token, '-->', similar[0])
-            replacements[token] = similar[0]
+    for token in rare:
+        similar = process.extractBests(token, choices, score_cutoff=95, limit=2)
+        if len(similar) > 1:
+            similar_token = similar[1][0]
+            if counts[token] < counts[similar_token] and counts[similar_token] >= min_counts:
+                print('   ', token, '-->', similar_token)
+                replacements[token] = similar_token
+                try:
+                    rare.remove(similar_token)
+                except ValueError:
+                    pass
+            else:
+                print('   ', similar_token, '-->', token)
+                replacements[similar_token] = token
 
     return [(i, [replacements[t] for t in doc]) for i, doc in tokenized_docs]
 

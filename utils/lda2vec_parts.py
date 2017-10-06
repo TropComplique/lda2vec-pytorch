@@ -27,14 +27,15 @@ class loss(nn.Module):
             num_sampled: An integer, number of negative words to sample.
         """
         super(loss, self).__init__()
-
+        
+        self.topics = topics
         self.n_topics = topics.n_topics
         self.alpha = 1.0/self.n_topics
         self.lambda_const = lambda_const
 
         # document distributions (logits) over the topics
         self.doc_weights = nn.Embedding(n_documents, self.n_topics)
-        init.uniform(self.doc_weights.weight, -1.0, 1.0)
+        init.normal(self.doc_weights.weight, std=1.0)
 
         self.neg = negative_sampling_loss(word_vectors, unigram_distribution, num_sampled)
 
@@ -82,8 +83,8 @@ class negative_sampling_loss(nn.Module):
         self.embedding_dim = embedding_dim
         self.word_distribution = word_distribution
         self.num_sampled = num_sampled
-        self.dropout1 = nn.Dropout(0.5)
-        self.dropout2 = nn.Dropout(0.5)
+        self.dropout1 = nn.Dropout(0.25)
+        self.dropout2 = nn.Dropout(0.25)
 
     def forward(self, pivot_words, target_words, doc_vectors):
         """Compute loss.

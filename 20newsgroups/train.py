@@ -13,9 +13,9 @@ from utils import loss, topic_embedding
 
 
 BATCH_SIZE = 4096
-LAMBDA_CONST = 200.0
+LAMBDA_CONST = 300.0
 LEARNING_RATE = 1e-3
-NUM_SAMPLED = 15
+NUM_SAMPLED = 20
 N_TOPICS = 20
 N_EPOCHS = 150
 GRAD_CLIP = 5.0
@@ -59,9 +59,9 @@ def main():
     )
     model.cuda()
 
-    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.5, nesterov=True)
     n_batches = math.floor(data_size/BATCH_SIZE)
-    print('number of batches', n_batches)
+    print('number of batches:', n_batches, '\n')
 
     model.train()
     try:
