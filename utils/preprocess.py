@@ -1,20 +1,22 @@
 from collections import Counter
 from tqdm import tqdm
+from fuzzywuzzy import process
 
 
-def preprocess(docs, nlp, min_length=11, min_counts=5):
+def preprocess(docs, nlp, min_length=11, min_counts=5, max_counts=1e5):
     """
     Arguments:
-        docs: a list of tuples (index, string), each string is a document.
-        nlp: a spaCy object, like nlp = spacy.load('en').
-        min_length: an integer, minimum document length.
-        min_counts: an integer.
+        docs: A list of tuples (index, string), each string is a document.
+        nlp: A spaCy object, like nlp = spacy.load('en').
+        min_length: An integer, minimum document length.
+        min_counts: An integer.
+        max_counts: An integer.
 
     Returns:
-        encoded_docs: a list of tuples (index, list), each list is a document encoded
-            by integer values.
-        decoder: a dict, integer -> word.
-        word_counts: a list of integers, counts of words that are in decoder.
+        encoded_docs: A list of tuples (index, list), each list is a document
+            with words encoded by integer values.
+        decoder: A dict, integer -> word.
+        word_counts: A list of integers, counts of words that are in decoder.
             word_counts[i] is the number of occurrences of word decoder[i]
             in all documents in docs.
     """
@@ -33,17 +35,19 @@ def preprocess(docs, nlp, min_length=11, min_counts=5):
     print('number of removed short documents:', n_short_docs)
 
     counts = _count_unique_tokens(tokenized_docs)
-    tokenized_docs = _remove_rare_tokens(counts, min_counts, tokenized_docs)
+    print('looking for words to replace!')
+    tokenized_docs = _replace_by_similar(tokenized_docs, counts, min_counts)
+    tokenized_docs = _remove_tokens(tokenized_docs, counts, min_counts, max_counts)
     n_short_docs = sum(1 for i, doc in tokenized_docs if len(doc) < min_length)
     tokenized_docs = [(i, doc) for i, doc in tokenized_docs if len(doc) >= min_length]
     print('number of additionally removed short documents:', n_short_docs)
 
     counts = _count_unique_tokens(tokenized_docs)
     encoder, decoder, word_counts = _create_token_encoder(counts)
-    
+
     print('\nminimum word count number:', word_counts[-1])
     print('this number can be less than MIN_COUNTS because of document removal')
-    
+
     encoded_docs = _encode(tokenized_docs, encoder)
     return encoded_docs, decoder, word_counts
 
@@ -56,17 +60,36 @@ def _count_unique_tokens(tokenized_docs):
 
 
 def _encode(tokenized_docs, encoder):
-    result = []
-    for i, doc in tokenized_docs:
-        result.append((i, [encoder[t] for t in doc]))
-    return result
+    return [(i, [encoder[t] for t in doc]) for i, doc in tokenized_docs]
 
 
-def _remove_rare_tokens(counts, min_counts, tokenized_docs):
+def _replace_by_similar(tokenized_docs, counts, min_counts):
+    """
+    Explore the possibility that some of rare words
+    are just typos. Then correct typos.
+    """
+    rare = [
+        (i, token) for i, (token, count) in enumerate(counts.most_common())
+        if count < min_counts
+    ]
+    all_tokens = [token for token, count in counts.most_common()]
+    replacements = {token: token for token in all_tokens}
 
-    # words with count < min_counts
-    # will be removed
+    for i, token in rare:
+        choices = all_tokens[:i] + all_tokens[(i + 1):]
+        similar = process.extractOne(token, choices, score_cutoff=90)
+        if similar is not None:
+            print(token, '-->', similar[0])
+            replacements[token] = similar[0]
 
+    return [(i, [replacements[t] for t in doc]) for i, doc in tokenized_docs]
+
+
+def _remove_tokens(tokenized_docs, counts, min_counts, max_counts):
+    """
+    Words with count < min_counts or count > max_counts
+    will be removed.
+    """
     total_tokens_count = sum(
         count for token, count in counts.most_common()
     )
@@ -75,19 +98,19 @@ def _remove_rare_tokens(counts, min_counts, tokenized_docs):
     # number of tokens that will be removed
     unknown_tokens_count = sum(
         count for token, count in counts.most_common()
-        if count < min_counts
+        if count < min_counts or count > max_counts
     )
-    print('number of unknown tokens to be removed:', unknown_tokens_count)
+    print('number of tokens to be removed:', unknown_tokens_count)
 
     keep = {}
     for token, count in counts.most_common():
-        keep[token] = count >= min_counts
+        keep[token] = count >= min_counts and count <= max_counts
 
     return [(i, [t for t in doc if keep[t]]) for i, doc in tokenized_docs]
 
 
 def _create_token_encoder(counts):
-    
+
     total_tokens_count = sum(
         count for token, count in counts.most_common()
     )

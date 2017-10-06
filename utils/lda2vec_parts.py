@@ -1,12 +1,64 @@
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
+import torch.nn.init as init
 import torch.nn.functional as F
 from scipy.stats import ortho_group
 
 
 # to prevent taking logarithm of zero
 EPSILON = 1e-8
+
+
+class loss(nn.Module):
+    """The main thing to minimize."""
+
+    def __init__(self, topics, word_vectors, unigram_distribution,
+                 n_documents, lambda_const=200.0, num_sampled=10):
+        """
+        Arguments:
+            topics: An instance of 'topic_embedding' class.
+            word_vectors: A float tensor of shape [vocab_size, embedding_dim].
+                A word embedding.
+            unigram_distribution: A float tensor of shape [vocab_size]. A distribution
+                from which to sample negative words.
+            n_documents: An integer, number of documents in dataset.
+            lambda_const: A float number, strength of dirichlet prior.
+            num_sampled: An integer, number of negative words to sample.
+        """
+        super(loss, self).__init__()
+
+        self.n_topics = topics.n_topics
+        self.alpha = 1.0/self.n_topics
+        self.lambda_const = lambda_const
+
+        # document distributions (logits) over the topics
+        self.doc_weights = nn.Embedding(n_documents, self.n_topics)
+        init.uniform(self.doc_weights.weight, -1.0, 1.0)
+
+        self.neg = negative_sampling_loss(word_vectors, unigram_distribution, num_sampled)
+
+    def forward(self, doc_indices, pivot_words, target_words):
+        """
+        Arguments:
+            doc_indices: A long tensor of shape [batch_size].
+            pivot_words: A long tensor of shape [batch_size].
+            target_words: A long tensor of shape [batch_size, window_size].
+        Returns:
+            A pair of losses, their sum is going to be minimized.
+        """
+
+        # shape: [batch_size, n_topics]
+        doc_weights = self.doc_weights(doc_indices)
+
+        # shape: [batch_size, embedding_dim]
+        doc_vectors = self.topics(doc_weights)
+
+        neg_loss = self.neg(pivot_words, target_words, doc_vectors)
+        dirichlet_loss = F.log_softmax(doc_weights).sum(1).mean()
+        dirichlet_loss *= self.lambda_const*(1.0 - self.alpha)
+
+        return neg_loss, dirichlet_loss
 
 
 class negative_sampling_loss(nn.Module):
@@ -117,13 +169,14 @@ class topic_embedding(nn.Module):
 
         self.topic_vectors = nn.Parameter(topic_vectors)
         self.embedding_dim = embedding_dim
+        self.n_topics = n_topics
 
     def forward(self, doc_weights):
         """Embed a batch of documents.
 
         Arguments:
             doc_weights: A float tensor of shape [batch_size, n_topics],
-                document distribution (logits) over the topics.
+                document distributions (logits) over the topics.
 
         Returns:
             A float tensor of shape [batch_size, embedding_dim].
