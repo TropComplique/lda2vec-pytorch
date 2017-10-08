@@ -43,15 +43,17 @@ def main():
     )
     data_size = len(data)
 
+    # set parameters
     embedding_dim = word_vectors.shape[1]
     vocab_size = len(unigram_distribution)
-    window_size = 10
+    window_size = 10  # fixed parameter, it depends on the data
     print('number of documents:', n_documents)
     print('number of windows:', data_size)
     print('number of topics:', N_TOPICS)
     print('vocabulary size:', vocab_size)
     print('word embedding dim:', embedding_dim)
 
+    # create a lda2vec model
     topics = topic_embedding(N_TOPICS, embedding_dim)
     model = loss(
         topics, word_vectors, unigram_distribution,
@@ -59,9 +61,15 @@ def main():
     )
     model.cuda()
 
-    optimizer = optim.SGD(model.parameters(), lr=LEARNING_RATE, momentum=0.5, nesterov=True)
+    params = [
+        {'params': model.topics.topic_vectors, 'lr': 0.05*LEARNING_RATE},
+        {'params': model.doc_weights.weight},
+        {'params': model.neg.embedding.weight}
+    ]
+    optimizer = optim.Adam(params, lr=LEARNING_RATE)
     n_batches = math.floor(data_size/BATCH_SIZE)
     print('number of batches:', n_batches, '\n')
+    losses = []  # collect all losses here
 
     model.train()
     try:
@@ -89,6 +97,7 @@ def main():
             print('{0:.2f} {1:.2f}'.format(
                 neg_loss.data[0], dirichlet_loss.data[0]
             ))
+            losses += [(epoch, neg_loss.data[0], dirichlet_loss.data[0])]
             if epoch % 5 == 0:
                 print('\nsaving!\n')
                 torch.save(model.state_dict(), str(epoch) + '_tmp_model_state.pytorch')
@@ -96,6 +105,7 @@ def main():
     except (KeyboardInterrupt, SystemExit):
         print(' Interruption detected, exiting the program...')
 
+    _write_training_logs(losses)
     torch.save(model.state_dict(), 'model_state.pytorch')
 
 
@@ -109,6 +119,16 @@ class SimpleDataset(Dataset):
 
     def __len__(self):
         return self.data_tensor.size(0)
+
+
+def _write_training_logs(losses):
+    with open('training_logs.txt', 'w') as f:
+        column_names = 'epoch,negative_sampling_loss,dirichlet_prior_loss\n'
+        f.write(column_names)
+
+        for i in losses:
+            values = ('{0},{1:.3f},{2:.3f}\n').format(*i)
+            f.write(values)
 
 
 main()

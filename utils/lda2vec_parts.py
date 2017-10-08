@@ -27,7 +27,7 @@ class loss(nn.Module):
             num_sampled: An integer, number of negative words to sample.
         """
         super(loss, self).__init__()
-        
+
         self.topics = topics
         self.n_topics = topics.n_topics
         self.alpha = 1.0/self.n_topics

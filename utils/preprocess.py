@@ -1,16 +1,15 @@
 from collections import Counter
 from tqdm import tqdm
-from fuzzywuzzy import process
 
 
-def preprocess(docs, nlp, min_length=11, min_counts=5, max_counts=1e5):
+def preprocess(docs, nlp, min_length, min_counts, max_counts):
     """
     Arguments:
         docs: A list of tuples (index, string), each string is a document.
         nlp: A spaCy object, like nlp = spacy.load('en').
         min_length: An integer, minimum document length.
-        min_counts: An integer.
-        max_counts: An integer.
+        min_counts: An integer, minimum count of a word.
+        max_counts: An integer, maximum count of a word.
 
     Returns:
         encoded_docs: A list of tuples (index, list), each list is a document
@@ -35,8 +34,6 @@ def preprocess(docs, nlp, min_length=11, min_counts=5, max_counts=1e5):
     print('number of removed short documents:', n_short_docs)
 
     counts = _count_unique_tokens(tokenized_docs)
-    # print('looking for words to replace:')
-    # tokenized_docs = _replace_by_similar(tokenized_docs, counts, min_counts)
     tokenized_docs = _remove_tokens(tokenized_docs, counts, min_counts, max_counts)
     n_short_docs = sum(1 for i, doc in tokenized_docs if len(doc) < min_length)
     tokenized_docs = [(i, doc) for i, doc in tokenized_docs if len(doc) >= min_length]
@@ -63,34 +60,6 @@ def _encode(tokenized_docs, encoder):
     return [(i, [encoder[t] for t in doc]) for i, doc in tokenized_docs]
 
 
-# not working yet
-def _replace_by_similar(tokenized_docs, counts, min_counts):
-    """
-    Explore the possibility that some of rare words
-    are just typos. Then correct typos.
-    """
-    rare = [token for token, count in counts.most_common() if count < min_counts]
-    choices = [token for token, count in counts.most_common()]
-    replacements = {token: token for token in choices}
-
-    for token in rare:
-        similar = process.extractBests(token, choices, score_cutoff=95, limit=2)
-        if len(similar) > 1:
-            similar_token = similar[1][0]
-            if counts[token] < counts[similar_token] and counts[similar_token] >= min_counts:
-                print('   ', token, '-->', similar_token)
-                replacements[token] = similar_token
-                try:
-                    rare.remove(similar_token)
-                except ValueError:
-                    pass
-            else:
-                print('   ', similar_token, '-->', token)
-                replacements[similar_token] = token
-
-    return [(i, [replacements[t] for t in doc]) for i, doc in tokenized_docs]
-
-
 def _remove_tokens(tokenized_docs, counts, min_counts, max_counts):
     """
     Words with count < min_counts or count > max_counts
@@ -101,7 +70,6 @@ def _remove_tokens(tokenized_docs, counts, min_counts, max_counts):
     )
     print('total number of tokens:', total_tokens_count)
 
-    # number of tokens that will be removed
     unknown_tokens_count = sum(
         count for token, count in counts.most_common()
         if count < min_counts or count > max_counts
