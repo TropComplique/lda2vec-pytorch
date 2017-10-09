@@ -13,8 +13,9 @@ from utils import loss, topic_embedding
 
 
 BATCH_SIZE = 4096
-LAMBDA_CONST = 300.0
+LAMBDA_CONST = 200.0
 LEARNING_RATE = 1e-3
+TOPICS_LR = 1e-4
 NUM_SAMPLED = 20
 N_TOPICS = 20
 N_EPOCHS = 150
@@ -62,7 +63,7 @@ def main():
     model.cuda()
 
     params = [
-        {'params': model.topics.topic_vectors, 'lr': 0.05*LEARNING_RATE},
+        {'params': model.topics.topic_vectors, 'lr': TOPICS_LR},
         {'params': model.doc_weights.weight},
         {'params': model.neg.embedding.weight}
     ]

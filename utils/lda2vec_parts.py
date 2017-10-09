@@ -6,8 +6,12 @@ import torch.nn.functional as F
 from scipy.stats import ortho_group
 
 
-# to prevent taking logarithm of zero
 EPSILON = 1e-8
+
+PIVOTS_DROPOUT = 0.5
+DOC_VECS_DROPOUT = 0.5
+TOPICS_DROPOUT = 0.5
+TOPIC_ASSIGN_DROPOUT = 0.2
 
 
 class loss(nn.Module):
@@ -83,8 +87,8 @@ class negative_sampling_loss(nn.Module):
         self.embedding_dim = embedding_dim
         self.word_distribution = word_distribution
         self.num_sampled = num_sampled
-        self.dropout1 = nn.Dropout(0.25)
-        self.dropout2 = nn.Dropout(0.25)
+        self.dropout1 = nn.Dropout(PIVOTS_DROPOUT)
+        self.dropout2 = nn.Dropout(DOC_VECS_DROPOUT)
 
     def forward(self, pivot_words, target_words, doc_vectors):
         """Compute loss.
@@ -171,6 +175,7 @@ class topic_embedding(nn.Module):
         self.topic_vectors = nn.Parameter(topic_vectors)
         self.embedding_dim = embedding_dim
         self.n_topics = n_topics
+        self.dropout = nn.Dropout(TOPICS_DROPOUT)
 
     def forward(self, doc_weights):
         """Embed a batch of documents.
@@ -185,12 +190,18 @@ class topic_embedding(nn.Module):
 
         batch_size, n_topics = doc_weights.size()
         doc_probs = F.softmax(doc_weights)
+        
+        # dropout on topic assignments
+        drop_topics = (torch.rand(batch_size, n_topics).cuda() > TOPIC_ASSIGN_DROPOUT)
+        doc_probs = doc_probs*Variable(drop_topics.float())
+        doc_probs /= (doc_probs.sum(1, keepdim=True) + EPSILON)
 
         # shape: [batch_size, n_topics, 1]
         unsqueezed_doc_probs = doc_probs.unsqueeze(2)
 
         # shape: [1, n_topics, embedding_dim]
         unsqueezed_topic_vectors = self.topic_vectors.unsqueeze(0)
+        unsqueezed_topic_vectors = self.dropout(unsqueezed_topic_vectors)
 
         # linear combination of topic vectors weighted by probabilities,
         # shape: [batch_size, embedding_dim]
