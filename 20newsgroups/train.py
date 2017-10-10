@@ -35,6 +35,7 @@ def main():
     word_vectors = torch.FloatTensor(word_vectors)
     unigram_distribution = torch.FloatTensor(unigram_distribution**(3.0/4.0))
     unigram_distribution /= unigram_distribution.sum()
+    # unigram_distribution = unigram_distribution.cuda()
 
     # create a data feeder
     dataset = SimpleDataset(data)

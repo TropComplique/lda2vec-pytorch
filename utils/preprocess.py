@@ -103,3 +103,28 @@ def _create_token_encoder(counts):
         i += 1
 
     return encoder, decoder, word_counts
+
+
+def _replace_by_similar(tokenized_docs, counts, min_counts):
+    """
+    Explore the possibility that some of rare words
+    are just typos. Then correct typos.
+
+    Note: this function is not used in preprocessing right
+    now because it is very slow. Maybe in the future I will fix this.
+    """
+    rare = [token for token, count in counts.most_common() if count < min_counts]
+    choices = [token for token, count in counts.most_common() if count >= min_counts]
+    replacements = {token: token for token in choices}
+
+    from fuzzywuzzy import process
+
+    # for each rare token try to find a similar token with a higher count
+    for token in rare:
+        similar = process.extractOne(token, choices, score_cutoff=95)
+        if similar is not None:
+            similar_token = similar[0]
+            replacements[token] = similar_token
+            print('   ', token, '-->', similar_token)
+
+    return [(i, [replacements[t] for t in doc]) for i, doc in tokenized_docs]

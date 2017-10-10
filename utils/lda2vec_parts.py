@@ -6,12 +6,12 @@ import torch.nn.functional as F
 from scipy.stats import ortho_group
 
 
+# a small value
 EPSILON = 1e-8
 
 PIVOTS_DROPOUT = 0.5
 DOC_VECS_DROPOUT = 0.5
 TOPICS_DROPOUT = 0.5
-TOPIC_ASSIGN_DROPOUT = 0.2
 
 
 class loss(nn.Module):
@@ -190,11 +190,6 @@ class topic_embedding(nn.Module):
 
         batch_size, n_topics = doc_weights.size()
         doc_probs = F.softmax(doc_weights)
-        
-        # dropout on topic assignments
-        drop_topics = (torch.rand(batch_size, n_topics).cuda() > TOPIC_ASSIGN_DROPOUT)
-        doc_probs = doc_probs*Variable(drop_topics.float())
-        doc_probs /= (doc_probs.sum(1, keepdim=True) + EPSILON)
 
         # shape: [batch_size, n_topics, 1]
         unsqueezed_doc_probs = doc_probs.unsqueeze(2)
