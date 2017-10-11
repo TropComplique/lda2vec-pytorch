@@ -4,14 +4,15 @@ import torch.nn as nn
 import torch.nn.init as init
 import torch.nn.functional as F
 from scipy.stats import ortho_group
+from .alias_multinomial import AliasMultinomial
 
 
 # a small value
 EPSILON = 1e-8
 
 PIVOTS_DROPOUT = 0.5
-DOC_VECS_DROPOUT = 0.5
-TOPICS_DROPOUT = 0.5
+DOC_VECS_DROPOUT = 0.25
+TOPICS_DROPOUT = 0.25
 
 
 class loss(nn.Module):
@@ -39,7 +40,8 @@ class loss(nn.Module):
 
         # document distributions (logits) over the topics
         self.doc_weights = nn.Embedding(n_documents, self.n_topics)
-        init.normal(self.doc_weights.weight, std=1.0)
+        init.normal(self.doc_weights.weight, std=0.01)
+        self.dropout = nn.Dropout(0.5)
 
         self.neg = negative_sampling_loss(word_vectors, unigram_distribution, num_sampled)
 
@@ -55,6 +57,7 @@ class loss(nn.Module):
 
         # shape: [batch_size, n_topics]
         doc_weights = self.doc_weights(doc_indices)
+        doc_weights = self.dropout(doc_weights)
 
         # shape: [batch_size, embedding_dim]
         doc_vectors = self.topics(doc_weights)
@@ -85,7 +88,8 @@ class negative_sampling_loss(nn.Module):
         self.embedding.weight = nn.Parameter(word_vectors)
 
         self.embedding_dim = embedding_dim
-        self.word_distribution = word_distribution
+        # 'AliasMultinomial' is a lot faster than torch.multinomial
+        self.multinomial = AliasMultinomial(word_distribution)
         self.num_sampled = num_sampled
         self.dropout1 = nn.Dropout(PIVOTS_DROPOUT)
         self.dropout2 = nn.Dropout(DOC_VECS_DROPOUT)
@@ -128,12 +132,8 @@ class negative_sampling_loss(nn.Module):
 
         # sample negative words for each word in the window,
         # shape: [batch_size*window_size*num_sampled]
-        noise = torch.multinomial(
-            self.word_distribution, batch_size*window_size*self.num_sampled,
-            replacement=True
-        )
-        noise = Variable(noise.cuda())
-        noise = noise.view(batch_size, window_size*self.num_sampled)
+        noise = self.multinomial.draw(batch_size*window_size*self.num_sampled)
+        noise = Variable(noise).view(batch_size, window_size*self.num_sampled)
 
         # shape: [batch_size, window_size*num_sampled, embedding_dim]
         noise = self.embedding(noise)

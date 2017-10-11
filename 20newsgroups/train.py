@@ -16,9 +16,9 @@ BATCH_SIZE = 4096
 LAMBDA_CONST = 200.0
 LEARNING_RATE = 1e-3
 TOPICS_LR = 1e-4
-NUM_SAMPLED = 20
+NUM_SAMPLED = 15
 N_TOPICS = 20
-N_EPOCHS = 150
+N_EPOCHS = 250
 GRAD_CLIP = 5.0
 
 
@@ -35,7 +35,7 @@ def main():
     word_vectors = torch.FloatTensor(word_vectors)
     unigram_distribution = torch.FloatTensor(unigram_distribution**(3.0/4.0))
     unigram_distribution /= unigram_distribution.sum()
-    # unigram_distribution = unigram_distribution.cuda()
+    unigram_distribution = unigram_distribution.cuda()
 
     # create a data feeder
     dataset = SimpleDataset(data)
@@ -100,7 +100,7 @@ def main():
                 neg_loss.data[0], dirichlet_loss.data[0]
             ))
             losses += [(epoch, neg_loss.data[0], dirichlet_loss.data[0])]
-            if epoch % 5 == 0:
+            if epoch % 20 == 0:
                 print('\nsaving!\n')
                 torch.save(model.state_dict(), str(epoch) + '_tmp_model_state.pytorch')
 
