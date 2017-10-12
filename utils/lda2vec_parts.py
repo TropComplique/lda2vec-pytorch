@@ -11,10 +11,9 @@ from .alias_multinomial import AliasMultinomial
 EPSILON = 1e-8
 
 PIVOTS_DROPOUT = 0.5
-DOC_VECS_DROPOUT = 0.25
-TOPICS_DROPOUT = 0.25
+DOC_VECS_DROPOUT = 0.15
+TOPICS_DROPOUT = 0.15
 DOC_WEIGHTS_DROPOUT = 0.5
-
 DOC_WEIGHTS_INIT = 0.01
 
 
@@ -22,7 +21,7 @@ class loss(nn.Module):
     """The main thing to minimize."""
 
     def __init__(self, topics, word_vectors, unigram_distribution,
-                 n_documents, lambda_const=200.0, num_sampled=10):
+                 n_documents, lambda_const=100.0, num_sampled=15):
         """
         Arguments:
             topics: An instance of 'topic_embedding' class.

@@ -13,13 +13,14 @@ from utils import loss, topic_embedding
 
 
 BATCH_SIZE = 4096
-LAMBDA_CONST = 200.0
-LEARNING_RATE = 1e-3
+LAMBDA_CONST = 100.0
+WORD_VECS_LR = 1e-3
+DOC_WEIGHTS_LR = 5e-4
 TOPICS_LR = 1e-4
 NUM_SAMPLED = 15
 N_TOPICS = 20
-N_EPOCHS = 250
-GRAD_CLIP = 5.0
+N_EPOCHS = 200
+GRAD_CLIP = 1.0
 
 
 def main():
@@ -62,13 +63,18 @@ def main():
         n_documents, LAMBDA_CONST, NUM_SAMPLED
     )
     model.cuda()
-
+    
+    temperature = 3.0
+    doc_weights_init = np.load('doc_weights_init.npy')
+    doc_weights_init /= temperature
+    model.doc_weights.weight.data = torch.FloatTensor(doc_weights_init).cuda()
+   
     params = [
-        {'params': model.topics.topic_vectors, 'lr': TOPICS_LR, 'weight_decay': 1e-4},
-        {'params': model.doc_weights.weight},
-        {'params': model.neg.embedding.weight}
+        {'params': model.topics.topic_vectors, 'lr': TOPICS_LR, 'weight_decay': 1e-3},
+        {'params': model.doc_weights.weight, 'lr': DOC_WEIGHTS_LR},
+        {'params': model.neg.embedding.weight, 'lr': WORD_VECS_LR}
     ]
-    optimizer = optim.Adam(params, lr=LEARNING_RATE)
+    optimizer = optim.Adam(params)
     n_batches = math.floor(data_size/BATCH_SIZE)
     print('number of batches:', n_batches, '\n')
     losses = []  # collect all losses here
