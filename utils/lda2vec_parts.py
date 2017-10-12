@@ -13,6 +13,9 @@ EPSILON = 1e-8
 PIVOTS_DROPOUT = 0.5
 DOC_VECS_DROPOUT = 0.25
 TOPICS_DROPOUT = 0.25
+DOC_WEIGHTS_DROPOUT = 0.5
+
+DOC_WEIGHTS_INIT = 0.01
 
 
 class loss(nn.Module):
@@ -40,8 +43,8 @@ class loss(nn.Module):
 
         # document distributions (logits) over the topics
         self.doc_weights = nn.Embedding(n_documents, self.n_topics)
-        init.normal(self.doc_weights.weight, std=0.01)
-        self.dropout = nn.Dropout(0.5)
+        init.normal(self.doc_weights.weight, std=DOC_WEIGHTS_INIT)
+        self.dropout = nn.Dropout(DOC_WEIGHTS_DROPOUT)
 
         self.neg = negative_sampling_loss(word_vectors, unigram_distribution, num_sampled)
 

@@ -64,7 +64,7 @@ def main():
     model.cuda()
 
     params = [
-        {'params': model.topics.topic_vectors, 'lr': TOPICS_LR},
+        {'params': model.topics.topic_vectors, 'lr': TOPICS_LR, 'weight_decay': 1e-4},
         {'params': model.doc_weights.weight},
         {'params': model.neg.embedding.weight}
     ]
@@ -100,7 +100,7 @@ def main():
                 neg_loss.data[0], dirichlet_loss.data[0]
             ))
             losses += [(epoch, neg_loss.data[0], dirichlet_loss.data[0])]
-            if epoch % 20 == 0:
+            if epoch % 10 == 0:
                 print('\nsaving!\n')
                 torch.save(model.state_dict(), str(epoch) + '_tmp_model_state.pytorch')
 
