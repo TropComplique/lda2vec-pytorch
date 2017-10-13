@@ -13,10 +13,10 @@ from utils import loss, topic_embedding
 
 
 BATCH_SIZE = 4096
-LAMBDA_CONST = 100.0
+LAMBDA_CONST = 200.0 # 20
 WORD_VECS_LR = 1e-3
-DOC_WEIGHTS_LR = 5e-4
-TOPICS_LR = 1e-4
+DOC_WEIGHTS_LR = 1e-3
+TOPICS_LR = 1e-3
 NUM_SAMPLED = 15
 N_TOPICS = 20
 N_EPOCHS = 200
@@ -63,10 +63,12 @@ def main():
     )
     model.cuda()
 
-    temperature = 3.0
-    doc_weights_init = np.load('doc_weights_init.npy')
-    doc_weights_init /= temperature
-    model.doc_weights.weight.data = torch.FloatTensor(doc_weights_init).cuda()
+    # temperature = 5.0
+    # doc_weights_init = np.load('doc_weights_init.npy')
+    # doc_weights_init += np.random.uniform(high=0.1, size=doc_weights_init.shape)
+    # doc_weights_init = np.log(doc_weights_init/doc_weights_init.sum(1, keepdims=True))
+    # doc_weights_init /= temperature
+    # model.doc_weights.weight.data = torch.FloatTensor(doc_weights_init).cuda()
 
     params = [
         {'params': model.topics.topic_vectors, 'lr': TOPICS_LR, 'weight_decay': 1e-3},
