@@ -3,7 +3,8 @@ from tqdm import tqdm
 
 
 def preprocess(docs, nlp, min_length, min_counts, max_counts):
-    """
+    """Tokenize, clean, and encode documents.
+
     Arguments:
         docs: A list of tuples (index, string), each string is a document.
         nlp: A spaCy object, like nlp = spacy.load('en').
@@ -33,6 +34,7 @@ def preprocess(docs, nlp, min_length, min_counts, max_counts):
     tokenized_docs = [(i, doc) for i, doc in tokenized_docs if len(doc) >= min_length]
     print('number of removed short documents:', n_short_docs)
 
+    # remove some tokens
     counts = _count_unique_tokens(tokenized_docs)
     tokenized_docs = _remove_tokens(tokenized_docs, counts, min_counts, max_counts)
     n_short_docs = sum(1 for i, doc in tokenized_docs if len(doc) < min_length)

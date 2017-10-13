@@ -4,7 +4,7 @@ import numpy as np
 
 class AliasMultinomial(object):
     """
-    Fast sampling from a multinomial distribution. From:
+    Fast sampling from a multinomial distribution.
     https://hips.seas.harvard.edu/blog/2013/03/03/the-alias-method-efficient-sampling-with-many-discrete-outcomes/
     """
     def __init__(self, probs):
@@ -19,7 +19,7 @@ class AliasMultinomial(object):
         self.J = torch.LongTensor([0]*K).cuda()
 
         # sort the data into the outcomes with probabilities
-        # that are larger and smaller than 1/K.
+        # that are larger and smaller than 1/K
         smaller = []
         larger = []
         for kk, prob in enumerate(probs):
@@ -31,7 +31,7 @@ class AliasMultinomial(object):
 
         # loop though and create little binary mixtures that
         # appropriately allocate the larger outcomes over the
-        # overall uniform mixture.
+        # overall uniform mixture
         while len(smaller) > 0 and len(larger) > 0:
             small = smaller.pop()
             large = larger.pop()

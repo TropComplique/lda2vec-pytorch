@@ -85,20 +85,19 @@ class negative_sampling_loss(nn.Module):
         super(negative_sampling_loss, self).__init__()
 
         vocab_size, embedding_dim = word_vectors.size()
-
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
-        self.embedding.weight = nn.Parameter(word_vectors)
+        self.embedding.weight.data = word_vectors
 
-        self.embedding_dim = embedding_dim
         # 'AliasMultinomial' is a lot faster than torch.multinomial
         self.multinomial = AliasMultinomial(word_distribution)
+
         self.num_sampled = num_sampled
+        self.embedding_dim = embedding_dim
         self.dropout1 = nn.Dropout(PIVOTS_DROPOUT)
         self.dropout2 = nn.Dropout(DOC_VECS_DROPOUT)
 
     def forward(self, pivot_words, target_words, doc_vectors):
-        """Compute loss.
-
+        """
         Arguments:
             pivot_words: A long tensor of shape [batch_size].
             target_words: A long tensor of shape [batch_size, window_size].
@@ -175,7 +174,6 @@ class topic_embedding(nn.Module):
         topic_vectors = torch.FloatTensor(topic_vectors)
 
         self.topic_vectors = nn.Parameter(topic_vectors)
-        self.embedding_dim = embedding_dim
         self.n_topics = n_topics
         self.dropout = nn.Dropout(TOPICS_DROPOUT)
 
@@ -190,7 +188,6 @@ class topic_embedding(nn.Module):
             A float tensor of shape [batch_size, embedding_dim].
         """
 
-        batch_size, n_topics = doc_weights.size()
         doc_probs = F.softmax(doc_weights)
 
         # shape: [batch_size, n_topics, 1]

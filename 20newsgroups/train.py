@@ -30,6 +30,7 @@ def main():
     unigram_distribution = np.load('unigram_distribution.npy')[()]
     word_vectors = np.load('word_vectors.npy')
     n_documents = len(np.unique(data[:, 0]))
+    data_size = len(data)
 
     # convert to pytorch tensors
     data = torch.LongTensor(data)
@@ -44,12 +45,10 @@ def main():
         dataset, batch_size=BATCH_SIZE, num_workers=4,
         shuffle=True, pin_memory=True, drop_last=True
     )
-    data_size = len(data)
 
     # set parameters
     embedding_dim = word_vectors.shape[1]
     vocab_size = len(unigram_distribution)
-    window_size = 10  # fixed parameter, it depends on the data
     print('number of documents:', n_documents)
     print('number of windows:', data_size)
     print('number of topics:', N_TOPICS)
@@ -63,12 +62,12 @@ def main():
         n_documents, LAMBDA_CONST, NUM_SAMPLED
     )
     model.cuda()
-    
+
     temperature = 3.0
     doc_weights_init = np.load('doc_weights_init.npy')
     doc_weights_init /= temperature
     model.doc_weights.weight.data = torch.FloatTensor(doc_weights_init).cuda()
-   
+
     params = [
         {'params': model.topics.topic_vectors, 'lr': TOPICS_LR, 'weight_decay': 1e-3},
         {'params': model.doc_weights.weight, 'lr': DOC_WEIGHTS_LR},
