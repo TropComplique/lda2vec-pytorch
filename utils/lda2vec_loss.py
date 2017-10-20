@@ -8,12 +8,10 @@ from .alias_multinomial import AliasMultinomial
 
 
 # a small value
-EPSILON = 1e-8
+EPSILON = 1e-9
 
-PIVOTS_DROPOUT = 0.3
-DOC_VECS_DROPOUT = 0.1
-TOPICS_DROPOUT = 0.1
-DOC_WEIGHTS_DROPOUT = 0.1
+PIVOTS_DROPOUT = 0.5
+DOC_VECS_DROPOUT = 0.25
 DOC_WEIGHTS_INIT = 0.01
 
 
@@ -43,7 +41,6 @@ class loss(nn.Module):
         # document distributions (logits) over the topics
         self.doc_weights = nn.Embedding(n_documents, self.n_topics)
         init.normal(self.doc_weights.weight, std=DOC_WEIGHTS_INIT)
-        self.dropout = nn.Dropout(DOC_WEIGHTS_DROPOUT)
 
         self.neg = negative_sampling_loss(word_vectors, unigram_distribution, num_sampled)
 
@@ -59,7 +56,6 @@ class loss(nn.Module):
 
         # shape: [batch_size, n_topics]
         doc_weights = self.doc_weights(doc_indices)
-        doc_weights = self.dropout(doc_weights)
 
         # shape: [batch_size, embedding_dim]
         doc_vectors = self.topics(doc_weights)
@@ -175,7 +171,6 @@ class topic_embedding(nn.Module):
 
         self.topic_vectors = nn.Parameter(topic_vectors)
         self.n_topics = n_topics
-        self.dropout = nn.Dropout(TOPICS_DROPOUT)
 
     def forward(self, doc_weights):
         """Embed a batch of documents.
@@ -195,7 +190,6 @@ class topic_embedding(nn.Module):
 
         # shape: [1, n_topics, embedding_dim]
         unsqueezed_topic_vectors = self.topic_vectors.unsqueeze(0)
-        unsqueezed_topic_vectors = self.dropout(unsqueezed_topic_vectors)
 
         # linear combination of topic vectors weighted by probabilities,
         # shape: [batch_size, embedding_dim]
