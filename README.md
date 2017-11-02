@@ -4,11 +4,11 @@ The original paper:
 [Mixing Dirichlet Topic Models and Word Embeddings to Make lda2vec](https://arxiv.org/abs/1605.02019).
 
 **Warning:**
-I, personally, believe that lda2vec algorithm isn't working.  
+I, personally, believe that it is quite hard to make lda2vec algorithm work.
 Sometimes it finds a couple of topics, sometimes not. Usually a lot of found topics are a total mess.  
 The algorithm is prone to poor local minima. It greatly depends on values of initial topic assignments.
 
-For my results see `20newsgroups/explore_trained_model.ipynb`.
+For my results see `20newsgroups/explore_trained_model.ipynb`. Also see *Implementation details* below.
 
 ## Loss
 The training proceeds as follows. First, convert a document corpus to a set of tuples  
