@@ -1,14 +1,16 @@
 # lda2vec
-pytorch implementation of Moody's lda2vec, a way of topic modeling using word embeddings. The original paper:
+`pytorch` implementation of Moody's lda2vec, a way of topic modeling using word embeddings. The original paper:
 [Mixing Dirichlet Topic Models and Word Embeddings to Make lda2vec](https://arxiv.org/abs/1605.02019).
 
 **Warning:**
-I, personally, believe that lda2vec algorithm isn't working.
+I, personally, believe that lda2vec algorithm isn't working.  
 Sometimes it finds a couple of topics, sometimes not. Usually a lot of found topics are a total mess.  
-The algorithm is prone to poor local minima. It strongly dependents on initialization of initial topic assignments. 
+The algorithm is prone to poor local minima. It greatly dependents on values of initial topic assignments.
 
 ## Loss
-The training proceeds as follows. First, convert a document corpus to a set of tuples `{(document id, word, the window around the word) | for each word in the corpus}`. Second, for each tuple maximize the following objective function
+The training proceeds as follows. First, convert a document corpus to a set of tuples  
+`{(document id, word, the window around the word) | for each word in the corpus}`.  
+Second, for each tuple maximize the following objective function
 
 ![objective function](loss.png)
 
