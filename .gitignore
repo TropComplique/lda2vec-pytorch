@@ -1,5 +1,6 @@
 .ipynb_checkpoints
 __pycache__
 *.npy
-*.txt
 *.pytorch
+*.tex
+*.swp

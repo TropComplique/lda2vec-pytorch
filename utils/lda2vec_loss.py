@@ -12,14 +12,14 @@ EPSILON = 1e-9
 
 PIVOTS_DROPOUT = 0.5
 DOC_VECS_DROPOUT = 0.25
-DOC_WEIGHTS_INIT = 0.01
+DOC_WEIGHTS_INIT = 0.1
 
 
 class loss(nn.Module):
     """The main thing to minimize."""
 
     def __init__(self, topics, word_vectors, unigram_distribution,
-                 n_documents, lambda_const=100.0, num_sampled=15):
+                 n_documents, loss_doc_weights, lambda_const=100.0, num_sampled=15):
         """
         Arguments:
             topics: An instance of 'topic_embedding' class.
@@ -28,6 +28,9 @@ class loss(nn.Module):
             unigram_distribution: A float tensor of shape [vocab_size]. A distribution
                 from which to sample negative words.
             n_documents: An integer, number of documents in dataset.
+            loss_doc_weights: A float tensor with shape [n_documents],
+                for weighting each document when computing loss
+                before taking average over a batch.
             lambda_const: A float number, strength of dirichlet prior.
             num_sampled: An integer, number of negative words to sample.
         """
@@ -37,6 +40,7 @@ class loss(nn.Module):
         self.n_topics = topics.n_topics
         self.alpha = 1.0/self.n_topics
         self.lambda_const = lambda_const
+        self.weights = loss_doc_weights
 
         # document distributions (logits) over the topics
         self.doc_weights = nn.Embedding(n_documents, self.n_topics)
@@ -57,11 +61,16 @@ class loss(nn.Module):
         # shape: [batch_size, n_topics]
         doc_weights = self.doc_weights(doc_indices)
 
+        # for reweighting loss
+        w = Variable(self.weights[doc_indices.data])
+        w /= w.sum()
+        w *= w.size(0)
+
         # shape: [batch_size, embedding_dim]
         doc_vectors = self.topics(doc_weights)
 
-        neg_loss = self.neg(pivot_words, target_words, doc_vectors)
-        dirichlet_loss = F.log_softmax(doc_weights).sum(1).mean()
+        neg_loss = self.neg(pivot_words, target_words, doc_vectors, w)
+        dirichlet_loss = (w*F.log_softmax(doc_weights).sum(1)).mean()
         dirichlet_loss *= self.lambda_const*(1.0 - self.alpha)
 
         return neg_loss, dirichlet_loss
@@ -92,7 +101,7 @@ class negative_sampling_loss(nn.Module):
         self.dropout1 = nn.Dropout(PIVOTS_DROPOUT)
         self.dropout2 = nn.Dropout(DOC_VECS_DROPOUT)
 
-    def forward(self, pivot_words, target_words, doc_vectors):
+    def forward(self, pivot_words, target_words, doc_vectors, loss_doc_weights):
         """
         Arguments:
             pivot_words: A long tensor of shape [batch_size].
@@ -100,6 +109,7 @@ class negative_sampling_loss(nn.Module):
                 Windows around pivot words.
             doc_vectors: A float tensor of shape [batch_size, embedding_dim].
                 Documents embeddings.
+            loss_doc_weights: A float tensor of shape [batch_size].
 
         Returns:
             A scalar.
@@ -150,7 +160,7 @@ class negative_sampling_loss(nn.Module):
 
         # sum over the window, then take mean over the batch
         # shape: []
-        return neg_loss.sum(1).mean().neg()
+        return (loss_doc_weights*neg_loss.sum(1)).mean().neg()
 
 
 class topic_embedding(nn.Module):

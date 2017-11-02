@@ -12,6 +12,13 @@ from .lda2vec_loss import loss, topic_embedding
 # negative sampling power
 BETA = 0.75
 
+# i add some noise to the gradient
+ETA = 0.4
+# i believe this helps optimization.
+# the idea is taken from here:
+# https://arxiv.org/abs/1511.06807
+# 'Adding Gradient Noise Improves Learning for Very Deep Networks'
+
 
 def train(data, unigram_distribution, word_vectors,
           doc_weights_init=None, n_topics=25,
@@ -53,6 +60,17 @@ def train(data, unigram_distribution, word_vectors,
     print('vocabulary size:', vocab_size)
     print('word embedding dim:', embedding_dim)
 
+    # each document has different length,
+    # so larger documents will have stronger gradient.
+    # to alleviate this problem i reweight loss
+    doc_ids = data[:, 0]
+    unique_docs, counts = np.unique(doc_ids, return_counts=True)
+    weights = np.zeros((len(unique_docs),), 'float32')
+    for i, j in enumerate(unique_docs):
+        # longer a document -> lower the document weight when computing loss
+        weights[j] = 1.0/np.log(counts[i])
+    weights = torch.FloatTensor(weights).cuda()
+
     # prepare word distribution
     unigram_distribution = torch.FloatTensor(unigram_distribution**BETA)
     unigram_distribution /= unigram_distribution.sum()
@@ -70,7 +88,7 @@ def train(data, unigram_distribution, word_vectors,
     word_vectors = torch.FloatTensor(word_vectors)
     model = loss(
         topics, word_vectors, unigram_distribution,
-        n_documents, lambda_const, num_sampled
+        n_documents, weights, lambda_const, num_sampled
     )
     model.cuda()
 
@@ -89,6 +107,7 @@ def train(data, unigram_distribution, word_vectors,
     n_batches = math.ceil(n_windows/batch_size)
     print('number of batches:', n_batches, '\n')
     losses = []  # collect all losses here
+    doc_weights_shape = model.doc_weights.weight.size()
 
     model.train()
     try:
@@ -110,6 +129,11 @@ def train(data, unigram_distribution, word_vectors,
 
                 optimizer.zero_grad()
                 total_loss.backward()
+
+                # level of noise becomes lower as training goes on
+                sigma = ETA/epoch**0.55
+                noise = sigma*Variable(torch.randn(doc_weights_shape).cuda())
+                model.doc_weights.weight.grad += noise
 
                 # gradient clipping
                 for p in model.parameters():
