@@ -19,6 +19,9 @@ def main():
     temperature = 7.0
     doc_weights_init /= temperature
 
+    # if you want to train the model like in the original paper
+    # set doc_weights_init=None
+
     train(
         data, unigram_distribution, word_vectors,
         doc_weights_init, n_topics=25,
