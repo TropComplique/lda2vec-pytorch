@@ -40,6 +40,6 @@ Also I use temperature to smoothen the initialization in the hope that lda2vec w
   2. remove rare and frequent words
 
 ## Requirements
-* pytorch 0.2, spacy 1.9, gensim 3.0
+* pytorch 1.7.1, spacy 2.3.2, gensim 3.8.3
 * numpy, sklearn, tqdm
 * matplotlib, [Multicore-TSNE](https://github.com/DmitryUlyanov/Multicore-TSNE)
