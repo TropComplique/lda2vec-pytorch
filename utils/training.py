@@ -142,8 +142,8 @@ def train(data, unigram_distribution, word_vectors,
                 optimizer.step()
 
                 n_samples = batch.size(0)
-                running_neg_loss += neg_loss.data[0]*n_samples
-                running_dirichlet_loss += dirichlet_loss.data[0]*n_samples
+                running_neg_loss += neg_loss.data*n_samples
+                running_dirichlet_loss += dirichlet_loss.data*n_samples
 
             losses += [(epoch, running_neg_loss/n_windows, running_dirichlet_loss/n_windows)]
             print('{0:.2f} {1:.2f}'.format(*losses[-1][1:]))

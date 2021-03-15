@@ -23,7 +23,7 @@ def preprocess(docs, nlp, min_length, min_counts, max_counts):
 
     def clean_and_tokenize(doc):
         text = ' '.join(doc.split())  # remove excessive spaces
-        text = nlp(text, tag=True, parse=False, entity=False)
+        text = nlp(text)
         return [t.lemma_ for t in text
                 if t.is_alpha and len(t) > 2 and not t.is_stop]
 

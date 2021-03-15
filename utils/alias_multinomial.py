@@ -44,8 +44,8 @@ class AliasMultinomial(object):
             else:
                 larger.append(large)
 
-        self.q.clamp(0.0, 1.0)
-        self.J.clamp(0, K - 1)
+        self.q.clamp_(0.0, 1.0)
+        self.J.clamp_(0, K - 1)
 
     def draw(self, N):
         """Draw N samples from the distribution."""
